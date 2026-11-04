@@ -1,0 +1,96 @@
+﻿<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#090910">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Aurora Music">
+<meta name="description" content="La tua musica, il tuo spazio privato.">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg">
+<link rel="apple-touch-icon" href="./icon.svg">
+<link rel="stylesheet" href="./style.css">
+<title>AURORA MUSIC</title>
+</head>
+<body>
+<header class="topbar">
+ <a class="logo" href="./"><span class="logo-symbol">A</span>AURORA <b>MUSIC</b></a>
+ <div class="header-right">
+  <span id="status">● OFFLINE</span>
+  <button id="logout" class="outline hidden">ESCI</button>
+ </div>
+</header>
+
+<main>
+<section id="auth" class="auth">
+ <div class="intro">
+  <span class="eyebrow">YOUR MUSIC. YOUR UNIVERSE.</span>
+  <h1>Feel the<br><span>frequency.</span></h1>
+  <p>La tua collezione musicale personale.<br>Ovunque tu sia.</p>
+  <div class="decoration"></div>
+ </div>
+ <div class="auth-box">
+  <span class="eyebrow">PRIVATE ACCESS</span>
+  <h2>Bentornato.</h2>
+  <p>Accedi al tuo universo musicale.</p>
+  <form id="loginForm">
+   <label for="email">EMAIL</label>
+   <input id="email" type="email" placeholder="La tua email" required autocomplete="email">
+   <label for="password">PASSWORD</label>
+   <input id="password" type="password" placeholder="La tua password" required autocomplete="current-password">
+   <button class="primary full" type="submit" id="loginButton">ACCEDI <span>→</span></button>
+  </form>
+  <button class="outline full" id="register">CREA IL MIO ACCOUNT</button>
+  <p id="authMessage" class="message"></p>
+ </div>
+</section>
+
+<section id="library" class="hidden">
+ <div class="hero">
+  <div>
+   <span class="eyebrow">YOUR PERSONAL SOUNDTRACK</span>
+   <h1>Music is<br><span>everything.</span></h1>
+   <p>Il tuo spazio. Le tue regole. La tua musica.</p>
+  </div>
+  <div class="hero-art"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="disc">♫</div></div>
+ </div>
+
+ <div class="stats">
+  <div><strong id="count">0</strong><small>BRANI</small></div>
+  <div><strong id="size">0 MB</strong><small>ARCHIVIO</small></div>
+  <div><strong id="favCount">0</strong><small>PREFERITI</small></div>
+ </div>
+
+ <div class="section-head">
+  <div><span class="eyebrow">COLLECTION</span><h2>La tua libreria</h2></div>
+  <button id="upload" class="primary">＋ AGGIUNGI MP3</button>
+  <input id="files" type="file" accept=".mp3,audio/mpeg" multiple hidden>
+ </div>
+
+ <div class="searchbar">
+  <span>⌕</span><input id="search" type="search" placeholder="Cerca titolo o artista...">
+  <button id="filter" class="outline">♡ Preferiti</button>
+ </div>
+
+ <div id="empty" class="empty hidden">
+  <div>♫</div><h3>Ancora nessuna musica.</h3>
+  <p>Carica i tuoi MP3 e crea la tua collezione.</p>
+  <button id="firstUpload" class="primary">CARICA I BRANI</button>
+ </div>
+ <div id="tracks" class="tracks"></div>
+</section>
+</main>
+
+<div id="player" class="player hidden">
+ <div class="now"><span>♫</span><div><strong id="nowTitle">Nessun brano</strong><small>AURORA MUSIC</small></div></div>
+ <audio id="audio" controls></audio>
+ <button id="closePlayer" class="outline">✕</button>
+</div>
+
+<footer>AURORA MUSIC <span>·</span> YOUR PRIVATE UNIVERSE</footer>
+<div id="toast" class="toast"></div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

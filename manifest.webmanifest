@@ -1,0 +1,11 @@
+﻿{
+ "name":"AURORA MUSIC",
+ "short_name":"Aurora",
+ "description":"La tua collezione musicale privata",
+ "start_url":"./",
+ "scope":"./",
+ "display":"standalone",
+ "background_color":"#090910",
+ "theme_color":"#090910",
+ "icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
