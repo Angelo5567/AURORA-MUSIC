@@ -55,9 +55,7 @@ function setBusy(value, button, label) {
   }
 }
 
-async function refresh() {
-  $("tracks").replaceChildren();
-  $("empty").classList.add("hidden");
+async function refresh(retryAuth = true) {
   $("status").textContent = "● SINCRONIZZAZIONE";
 
   const { data, error } = await supabase
@@ -66,6 +64,25 @@ async function refresh() {
     .order("added_at", { ascending: false });
 
   if (error) {
+    const expired = /jwt expired|invalid jwt|pgrst301|401/i.test(
+      error.message || ""
+    );
+
+    if (expired && retryAuth) {
+      $("status").textContent = "● RINNOVO SESSIONE";
+
+      const { data: refreshed, error: refreshError } =
+        await supabase.auth.refreshSession();
+
+      if (!refreshError && refreshed.session) {
+        return await refresh(false);
+      }
+
+      toast("Sessione scaduta. Accedi nuovamente per sincronizzare.");
+      connection();
+      return;
+    }
+
     toast("Errore libreria: " + error.message);
     connection();
     return;
@@ -412,4 +429,5 @@ supabase.auth.onAuthStateChange((event, session) => {
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js").catch(console.error);
 }
+
 
