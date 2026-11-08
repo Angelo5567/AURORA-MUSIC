@@ -1,4 +1,5 @@
-﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+﻿
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const URL = "https://dwxkyzjdkjwipmglnxtm.supabase.co";
 const KEY = "sb_publishable_7DZt-4_0hX9AnMLXytjxXg_dfIHOFpf";
@@ -20,6 +21,16 @@ let favoritesOnly = false;
 let toastTimer;
 let busy = false;
 
+let currentTrack = null;
+let playlist = [];
+let shuffleEnabled = false;
+let repeatMode = 0;
+let playRequest = 0;
+
+const audio = $("audio");
+
+/* ---------------- MESSAGGI ---------------- */
+
 function message(text, success = false) {
   const el = $("authMessage");
   el.textContent = text;
@@ -30,7 +41,9 @@ function toast(text) {
   $("toast").textContent = text;
   $("toast").style.display = "block";
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $("toast").style.display = "none", 4000);
+  toastTimer = setTimeout(() => {
+    $("toast").style.display = "none";
+  }, 4000);
 }
 
 function screen(loggedIn) {
@@ -47,13 +60,250 @@ window.addEventListener("online", connection);
 window.addEventListener("offline", connection);
 connection();
 
-function setBusy(value, button, label) {
-  busy = value;
-  if (button) {
-    button.disabled = value;
-    button.textContent = value ? label : button.dataset.original;
+/* ---------------- PLAYER ---------------- */
+
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds)) return "0:00";
+
+  const minutes = Math.floor(seconds / 60);
+  const remaining = Math.floor(seconds % 60);
+
+  return `${minutes}:${String(remaining).padStart(2, "0")}`;
+}
+
+function createPlayerControls() {
+  const player = $("player");
+  const now = player.querySelector(".now");
+
+  audio.controls = false;
+
+  const controls = document.createElement("div");
+  controls.id = "playerControls";
+  controls.className = "player-controls";
+
+  controls.innerHTML = `
+    <div class="player-timeline">
+      <span id="currentTime">0:00</span>
+      <input
+        id="progress"
+        type="range"
+        min="0"
+        max="1000"
+        value="0"
+        step="1"
+        aria-label="Posizione del brano"
+      >
+      <span id="duration">0:00</span>
+    </div>
+
+    <div class="player-buttons">
+      <button id="shuffleButton" type="button" title="Casuale">⤨</button>
+      <button id="previousButton" type="button" title="Precedente">⏮</button>
+      <button id="playPauseButton" type="button" title="Riproduci">▶</button>
+      <button id="nextButton" type="button" title="Successivo">⏭</button>
+      <button id="repeatButton" type="button" title="Ripetizione">↻</button>
+    </div>
+  `;
+
+  now.insertAdjacentElement("afterend", controls);
+
+  $("shuffleButton").addEventListener("click", () => {
+    shuffleEnabled = !shuffleEnabled;
+    updatePlayerButtons();
+    toast(shuffleEnabled ? "Modalità casuale attivata" : "Modalità casuale disattivata");
+  });
+
+  $("previousButton").addEventListener("click", previousTrack);
+  $("nextButton").addEventListener("click", () => nextTrack(false));
+  $("playPauseButton").addEventListener("click", togglePlayback);
+
+  $("repeatButton").addEventListener("click", () => {
+    repeatMode = (repeatMode + 1) % 3;
+    updatePlayerButtons();
+
+    const labels = [
+      "Ripetizione disattivata",
+      "Ripetizione playlist",
+      "Ripetizione singolo brano"
+    ];
+
+    toast(labels[repeatMode]);
+  });
+
+  $("progress").addEventListener("input", () => {
+    if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+
+    audio.currentTime =
+      (Number($("progress").value) / 1000) * audio.duration;
+
+    updateTimeline();
+  });
+
+  audio.addEventListener("timeupdate", updateTimeline);
+  audio.addEventListener("loadedmetadata", updateTimeline);
+  audio.addEventListener("durationchange", updateTimeline);
+  audio.addEventListener("play", updatePlayerButtons);
+  audio.addEventListener("pause", updatePlayerButtons);
+
+  audio.addEventListener("ended", () => {
+    if (repeatMode === 2) {
+      audio.currentTime = 0;
+      audio.play().catch(() => toast("Riproduzione non riuscita."));
+      return;
+    }
+
+    nextTrack(true);
+  });
+
+  audio.addEventListener("error", () => {
+    if (currentTrack) toast("Errore durante la riproduzione del brano.");
+  });
+
+  updatePlayerButtons();
+}
+
+function updateTimeline() {
+  const duration = audio.duration || 0;
+  const current = audio.currentTime || 0;
+
+  $("currentTime").textContent = formatTime(current);
+  $("duration").textContent = formatTime(duration);
+
+  $("progress").value = duration > 0
+    ? Math.round((current / duration) * 1000)
+    : 0;
+}
+
+function updatePlayerButtons() {
+  const playButton = $("playPauseButton");
+  if (!playButton) return;
+
+  playButton.textContent = audio.paused ? "▶" : "Ⅱ";
+  playButton.title = audio.paused ? "Riproduci" : "Pausa";
+
+  $("shuffleButton").classList.toggle("active", shuffleEnabled);
+
+  const repeatButton = $("repeatButton");
+
+  repeatButton.classList.toggle("active", repeatMode !== 0);
+  repeatButton.textContent = repeatMode === 2 ? "↻¹" : "↻";
+
+  repeatButton.title = [
+    "Ripetizione disattivata",
+    "Ripeti playlist",
+    "Ripeti brano"
+  ][repeatMode];
+}
+
+function togglePlayback() {
+  if (!currentTrack) {
+    if (tracks.length) playTrack(tracks[0]);
+    return;
+  }
+
+  if (audio.paused) {
+    audio.play().catch(() => toast("Impossibile riprendere la riproduzione."));
+  } else {
+    audio.pause();
   }
 }
+
+async function playTrack(track, queue = null) {
+  if (!track) return;
+
+  if (queue) {
+    playlist = [...queue];
+  }
+
+  if (!playlist.some(t => t.id === track.id)) {
+    playlist = [...tracks];
+  }
+
+  const request = ++playRequest;
+
+  try {
+    const path = track.storage_path || track.file_path;
+
+    const { data, error } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrl(path, 3600);
+
+    if (error) throw error;
+    if (request !== playRequest) return;
+
+    currentTrack = track;
+
+    audio.pause();
+    audio.crossOrigin = "anonymous";
+    audio.src = data.signedUrl;
+    audio.load();
+
+    $("nowTitle").textContent = track.title || "Senza titolo";
+
+    $("player").classList.remove("hidden");
+
+    render();
+    updatePlayerButtons();
+
+    await audio.play();
+
+  } catch (error) {
+    if (request === playRequest) {
+      toast("Riproduzione non riuscita: " + error.message);
+    }
+  }
+}
+
+function nextTrack(automatic = false) {
+  if (!currentTrack || playlist.length === 0) return;
+
+  const index = playlist.findIndex(t => t.id === currentTrack.id);
+
+  if (shuffleEnabled && playlist.length > 1) {
+    const alternatives = playlist.filter(t => t.id !== currentTrack.id);
+    const randomTrack = alternatives[
+      Math.floor(Math.random() * alternatives.length)
+    ];
+
+    playTrack(randomTrack);
+    return;
+  }
+
+  if (index === playlist.length - 1) {
+    if (automatic && repeatMode === 0) {
+      audio.pause();
+      return;
+    }
+
+    if (automatic && repeatMode !== 1) {
+      audio.pause();
+      return;
+    }
+
+    playTrack(playlist[0]);
+    return;
+  }
+
+  playTrack(playlist[index + 1]);
+}
+
+function previousTrack() {
+  if (!currentTrack || playlist.length === 0) return;
+
+  if (audio.currentTime > 3) {
+    audio.currentTime = 0;
+    return;
+  }
+
+  const index = playlist.findIndex(t => t.id === currentTrack.id);
+
+  const previousIndex =
+    index <= 0 ? playlist.length - 1 : index - 1;
+
+  playTrack(playlist[previousIndex]);
+}
+
+/* ---------------- LIBRERIA ---------------- */
 
 async function refresh(retryAuth = true) {
   $("status").textContent = "● SINCRONIZZAZIONE";
@@ -89,6 +339,12 @@ async function refresh(retryAuth = true) {
   }
 
   tracks = data || [];
+
+  if (currentTrack) {
+    const updated = tracks.find(t => t.id === currentTrack.id);
+    if (updated) currentTrack = updated;
+  }
+
   render();
   connection();
 }
@@ -102,13 +358,18 @@ function render() {
   const visible = tracks.filter(t =>
     (!favoritesOnly || t.favorite) &&
     ((t.title || "") + " " + (t.artist || ""))
-      .toLowerCase().includes(query)
+      .toLowerCase()
+      .includes(query)
   );
 
   $("count").textContent = tracks.length;
   $("favCount").textContent = tracks.filter(t => t.favorite).length;
+
   $("size").textContent =
-    (tracks.reduce((n, t) => n + Number(t.file_size || 0), 0) / 1048576).toFixed(1) + " MB";
+    (
+      tracks.reduce((n, t) => n + Number(t.file_size || 0), 0) /
+      1048576
+    ).toFixed(1) + " MB";
 
   $("empty").classList.toggle("hidden", tracks.length !== 0);
   $("tracks").classList.toggle("hidden", tracks.length === 0);
@@ -117,11 +378,17 @@ function render() {
     const row = document.createElement("article");
     row.className = "track";
 
+    if (currentTrack?.id === t.id) {
+      row.classList.add("playing");
+    }
+
     const art = document.createElement("div");
     art.className = "art";
-    art.textContent = "♫";
+    art.textContent =
+      currentTrack?.id === t.id && !audio.paused ? "♫" : "♪";
 
     const info = document.createElement("div");
+
     const title = document.createElement("div");
     title.className = "track-title";
     title.textContent = t.title || "Senza titolo";
@@ -136,9 +403,18 @@ function render() {
     actions.className = "actions";
 
     const play = document.createElement("button");
-    play.textContent = "▶";
+    play.textContent =
+      currentTrack?.id === t.id && !audio.paused ? "Ⅱ" : "▶";
+
     play.title = "Riproduci";
-    play.onclick = () => playTrack(t);
+
+    play.onclick = () => {
+      if (currentTrack?.id === t.id) {
+        togglePlayback();
+      } else {
+        playTrack(t, visible);
+      }
+    };
 
     const fav = document.createElement("button");
     fav.textContent = t.favorite ? "♥" : "♡";
@@ -163,23 +439,7 @@ function render() {
   }
 }
 
-async function playTrack(t) {
-  try {
-    const { data, error } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUrl(t.storage_path || t.file_path, 3600);
-
-    if (error) throw error;
-
-    $("audio").crossOrigin = "anonymous";
-    $("audio").src = data.signedUrl;
-    $("nowTitle").textContent = t.title;
-    $("player").classList.remove("hidden");
-    await $("audio").play();
-  } catch (e) {
-    toast("Riproduzione non riuscita: " + e.message);
-  }
-}
+/* ---------------- DOWNLOAD ---------------- */
 
 async function downloadTrack(t) {
   try {
@@ -195,13 +455,17 @@ async function downloadTrack(t) {
     const a = document.createElement("a");
     a.href = data.signedUrl;
     a.download = filename;
+
     document.body.append(a);
     a.click();
     a.remove();
-  } catch (e) {
-    toast("Download non riuscito: " + e.message);
+
+  } catch (error) {
+    toast("Download non riuscito: " + error.message);
   }
 }
+
+/* ---------------- PREFERITI ---------------- */
 
 async function favorite(t) {
   const { error } = await supabase
@@ -215,8 +479,11 @@ async function favorite(t) {
   render();
 }
 
+/* ---------------- LOGIN ---------------- */
+
 $("loginForm").addEventListener("submit", async e => {
   e.preventDefault();
+
   if (busy) return;
 
   const email = $("email").value.trim().toLowerCase();
@@ -228,7 +495,6 @@ $("loginForm").addEventListener("submit", async e => {
     return;
   }
 
-  button.dataset.original = "ACCEDI →";
   button.disabled = true;
   button.textContent = "ACCESSO IN CORSO...";
   busy = true;
@@ -242,14 +508,18 @@ $("loginForm").addEventListener("submit", async e => {
     if (error) throw error;
 
     message("Accesso effettuato.", true);
-  } catch (e) {
-    message("Accesso non riuscito: " + e.message);
+
+  } catch (error) {
+    message("Accesso non riuscito: " + error.message);
+
   } finally {
     busy = false;
     button.disabled = false;
     button.innerHTML = 'ACCEDI <span>→</span>';
   }
 });
+
+/* ---------------- REGISTRAZIONE ---------------- */
 
 $("register").addEventListener("click", async () => {
   if (busy) return;
@@ -273,7 +543,6 @@ $("register").addEventListener("click", async () => {
     return;
   }
 
-  button.dataset.original = "CREA IL MIO ACCOUNT";
   button.disabled = true;
   button.textContent = "CREAZIONE ACCOUNT...";
   busy = true;
@@ -293,8 +562,10 @@ $("register").addEventListener("click", async () => {
     } else {
       message("Registrazione completata. Ora prova ad accedere.", true);
     }
-  } catch (e) {
-    message("Registrazione non riuscita: " + e.message);
+
+  } catch (error) {
+    message("Registrazione non riuscita: " + error.message);
+
   } finally {
     busy = false;
     button.disabled = false;
@@ -302,9 +573,16 @@ $("register").addEventListener("click", async () => {
   }
 });
 
+/* ---------------- USCITA ---------------- */
+
 $("logout").onclick = async () => {
-  $("audio").pause();
-  $("audio").removeAttribute("src");
+  playRequest++;
+
+  audio.pause();
+  audio.removeAttribute("src");
+
+  currentTrack = null;
+  playlist = [];
 
   const { error } = await supabase.auth.signOut();
 
@@ -316,11 +594,17 @@ $("logout").onclick = async () => {
   tracks = [];
   $("password").value = "";
   message("");
+
+  $("player").classList.add("hidden");
+
   screen(false);
 };
 
+/* ---------------- EVENTI ---------------- */
+
 $("upload").onclick = () => $("files").click();
 $("firstUpload").onclick = () => $("files").click();
+
 $("search").oninput = render;
 
 $("filter").onclick = () => {
@@ -330,16 +614,27 @@ $("filter").onclick = () => {
 };
 
 $("closePlayer").onclick = () => {
-  $("audio").pause();
-  $("audio").removeAttribute("src");
+  playRequest++;
+
+  audio.pause();
+  audio.removeAttribute("src");
+
+  currentTrack = null;
+  playlist = [];
+
   $("player").classList.add("hidden");
+
+  render();
 };
+
+/* ---------------- CARICAMENTO MP3 ---------------- */
 
 $("files").onchange = async e => {
   const selected = Array.from(e.target.files || []);
   if (!selected.length) return;
 
   const { data: { user } } = await supabase.auth.getUser();
+
   if (!user) return toast("Accedi nuovamente.");
 
   let done = 0;
@@ -348,7 +643,10 @@ $("files").onchange = async e => {
   $("upload").disabled = true;
 
   for (const file of selected) {
-    if (!file.name.toLowerCase().endsWith(".mp3") || file.size > 52428800) {
+    if (
+      !file.name.toLowerCase().endsWith(".mp3") ||
+      file.size > 52428800
+    ) {
       failed++;
       continue;
     }
@@ -366,16 +664,18 @@ $("files").onchange = async e => {
 
       if (uploadError) throw uploadError;
 
-      const { error: dbError } = await supabase.from("tracks").insert({
-        id,
-        user_id: user.id,
-        title: file.name.replace(/\.mp3$/i, ""),
-        artist: "Artista sconosciuto",
-        file_name: file.name,
-        file_size: file.size,
-        storage_path: path,
-        favorite: false
-      });
+      const { error: dbError } = await supabase
+        .from("tracks")
+        .insert({
+          id,
+          user_id: user.id,
+          title: file.name.replace(/\.mp3$/i, ""),
+          artist: "Artista sconosciuto",
+          file_name: file.name,
+          file_size: file.size,
+          storage_path: path,
+          favorite: false
+        });
 
       if (dbError) {
         await supabase.storage.from(BUCKET).remove([path]);
@@ -383,25 +683,41 @@ $("files").onchange = async e => {
       }
 
       done++;
-    } catch (err) {
-      console.error(file.name, err);
+
+    } catch (error) {
+      console.error(file.name, error);
       failed++;
     }
 
-    $("status").textContent = `● CARICAMENTO ${done + failed}/${selected.length}`;
+    $("status").textContent =
+      `● CARICAMENTO ${done + failed}/${selected.length}`;
   }
 
   $("upload").disabled = false;
   e.target.value = "";
 
   await refresh();
+
   toast(`${done} MP3 caricati. ${failed} non caricati.`);
 };
+
+/* ---------------- AVVIO PLAYER ---------------- */
+
+createPlayerControls();
+
+/* ---------------- SESSIONE SUPABASE ---------------- */
 
 supabase.auth.onAuthStateChange((event, session) => {
   screen(!!session);
 
-  if (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED")) {
+  if (
+    session &&
+    (
+      event === "SIGNED_IN" ||
+      event === "INITIAL_SESSION" ||
+      event === "TOKEN_REFRESHED"
+    )
+  ) {
     setTimeout(refresh, 0);
   }
 
@@ -410,6 +726,8 @@ supabase.auth.onAuthStateChange((event, session) => {
     $("tracks").replaceChildren();
   }
 });
+
+/* ---------------- AVVIO APPLICAZIONE ---------------- */
 
 (async () => {
   const { data, error } = await supabase.auth.getSession();
@@ -426,8 +744,10 @@ supabase.auth.onAuthStateChange((event, session) => {
   }
 })();
 
+/* ---------------- SERVICE WORKER ---------------- */
+
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js").catch(console.error);
+  navigator.serviceWorker
+    .register("./sw.js")
+    .catch(console.error);
 }
-
-

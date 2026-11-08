@@ -67,3 +67,133 @@ footer span{color:var(--purple)}
 .track{grid-template-columns:40px 1fr;gap:10px}.art{width:40px;height:40px}.actions{grid-column:2;justify-content:flex-end}
 .player{padding:9px;gap:8px;flex-wrap:wrap}.now{min-width:0;flex:1}audio{flex-basis:100%;width:100%}
 }
+
+
+/* ---------------- PLAYER AVANZATO AURORA ---------------- */
+
+.player {
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.player-controls {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.player-timeline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.player-timeline span {
+  color: var(--muted);
+  font-size: 10px;
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.player-timeline input[type="range"] {
+  flex: 1;
+  width: 100%;
+  height: 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  outline: none;
+  cursor: pointer;
+  accent-color: var(--purple);
+}
+
+.player-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+}
+
+.player-buttons button {
+  width: 36px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #c9c3da;
+  font-size: 17px;
+  transition: .2s ease;
+}
+
+.player-buttons button:hover {
+  color: var(--cyan);
+  background: #252137;
+  border-color: var(--line);
+}
+
+.player-buttons button.active {
+  color: var(--cyan);
+  background: #202b3a;
+  border-color: #62e8ff55;
+}
+
+#playPauseButton {
+  width: 43px;
+  height: 43px;
+  border-radius: 50%;
+  color: #090910;
+  background: linear-gradient(135deg, var(--purple), var(--cyan));
+  font-size: 19px;
+  font-weight: 900;
+  box-shadow: 0 0 20px #aa72ff35;
+}
+
+#playPauseButton:hover {
+  color: #090910;
+  transform: scale(1.07);
+}
+
+.player audio {
+  display: none;
+}
+
+@media(max-width:700px) {
+  .player {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .player-controls {
+    flex-basis: 100%;
+    min-width: 0;
+    order: 2;
+  }
+
+  .now {
+    flex-basis: 100%;
+    order: 1;
+  }
+
+  .player-buttons {
+    gap: 17px;
+  }
+
+  .player-buttons button {
+    width: 38px;
+    height: 36px;
+  }
+
+  #playPauseButton {
+    width: 44px;
+    height: 44px;
+  }
+
+  .tracks {
+    margin-bottom: 180px;
+  }
+}
