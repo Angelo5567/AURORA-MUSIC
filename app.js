@@ -1,4 +1,4 @@
-﻿
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const URL = "https://dwxkyzjdkjwipmglnxtm.supabase.co";
@@ -95,20 +95,6 @@ function setupMediaSession() {
     pause: () => audio.pause(),
     previoustrack: () => previousTrack(),
     nexttrack: () => nextTrack(false),
-
-    seekbackward: details => {
-      audio.currentTime = Math.max(
-        0,
-        audio.currentTime - (details.seekOffset || 10)
-      );
-    },
-
-    seekforward: details => {
-      audio.currentTime = Math.min(
-        audio.duration || audio.currentTime + 10,
-        audio.currentTime + (details.seekOffset || 10)
-      );
-    },
 
     seekto: details => {
       if (Number.isFinite(details.seekTime)) {
@@ -842,4 +828,3 @@ if ("serviceWorker" in navigator) {
     .register("./sw.js")
     .catch(console.error);
 }
-
