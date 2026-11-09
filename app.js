@@ -90,25 +90,50 @@ function setupMediaSession() {
     return;
   }
 
-  const handlers = {
-    play: () => togglePlayback(),
-    pause: () => audio.pause(),
-    previoustrack: () => previousTrack(),
-    nexttrack: () => nextTrack(false),
+  const registerHandlers = () => {
+    const handlers = {
+      play: () => togglePlayback(),
+      pause: () => audio.pause(),
+      previoustrack: () => previousTrack(),
+      nexttrack: () => nextTrack(false),
 
-    seekto: details => {
-      if (Number.isFinite(details.seekTime)) {
-        audio.currentTime = details.seekTime;
+      seekto: details => {
+        if (Number.isFinite(details.seekTime)) {
+          audio.currentTime = details.seekTime;
+        }
+      }
+    };
+
+    for (const [action, handler] of Object.entries(handlers)) {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler);
+      } catch (error) {
+        console.warn("Comando non supportato:", action, error);
       }
     }
+
+    for (const action of ["seekbackward", "seekforward"]) {
+      try {
+        navigator.mediaSession.setActionHandler(action, null);
+      } catch (error) {
+        console.warn("Impossibile disattivare:", action, error);
+      }
+    }
+
+    updateMediaPlaybackState();
   };
 
-  for (const [action, handler] of Object.entries(handlers)) {
-    try {
-      navigator.mediaSession.setActionHandler(action, handler);
-    } catch (error) {
-      console.warn("Comando non supportato:", action);
-    }
+  audio.addEventListener("playing", registerHandlers);
+
+  try {
+    navigator.mediaSession.setActionHandler("seekbackward", null);
+    navigator.mediaSession.setActionHandler("seekforward", null);
+  } catch (error) {
+    console.warn("Disattivazione comandi seek non disponibile:", error);
+  }
+
+  if (!audio.paused) {
+    registerHandlers();
   }
 
   updateMediaPlaybackState();
