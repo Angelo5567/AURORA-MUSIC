@@ -197,3 +197,78 @@ footer span{color:var(--purple)}
     margin-bottom: 180px;
   }
 }
+
+/* AURORA PREMIUM PLAYER */
+
+.player {
+  background: linear-gradient(120deg, #11101d, #171329, #101a25);
+  border-top: 1px solid #a66aff70;
+  box-shadow: 0 -12px 45px #0009;
+  backdrop-filter: blur(24px);
+}
+
+.now-art {
+  width: 53px;
+  height: 53px;
+  min-width: 53px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  color: #090910;
+  font-size: 29px;
+  background: linear-gradient(135deg, #bd83ff, #62e8ff);
+  box-shadow: 0 0 24px #a66aff45;
+}
+
+.now-info {
+  min-width: 0;
+}
+
+.now-info strong {
+  display: block;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #fff;
+  font-size: 13px;
+}
+
+.now-info small {
+  color: #a78bd5;
+  letter-spacing: 2px;
+}
+
+.player-buttons button {
+  transition: transform .2s, background .2s, color .2s;
+}
+
+.player-buttons button:active {
+  transform: scale(.90);
+}
+
+#progress {
+  accent-color: #b77cff;
+}
+
+#progress::-webkit-slider-thumb {
+  box-shadow: 0 0 10px #b77cff;
+}
+
+@media(max-width:700px) {
+  .player {
+    padding: 13px 15px calc(13px + env(safe-area-inset-bottom));
+    border-radius: 19px 19px 0 0;
+    background: linear-gradient(145deg, #171226, #0e1521);
+  }
+
+  .now-art {
+    width: 49px;
+    height: 49px;
+    min-width: 49px;
+  }
+
+  .now-info strong {
+    max-width: 240px;
+  }
+}

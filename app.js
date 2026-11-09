@@ -62,6 +62,71 @@ connection();
 
 /* ---------------- PLAYER ---------------- */
 
+function updateMediaMetadata(track) {
+  if (!("mediaSession" in navigator) || !track) return;
+
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title || "Senza titolo",
+      artist: track.artist || "Artista sconosciuto",
+      album: "Aurora Music"
+    });
+  } catch (error) {
+    console.warn("Media metadata non disponibile:", error);
+  }
+}
+
+function updateMediaPlaybackState() {
+  if (!("mediaSession" in navigator)) return;
+
+  navigator.mediaSession.playbackState =
+    !currentTrack ? "none" :
+    audio.paused ? "paused" : "playing";
+}
+
+function setupMediaSession() {
+  if (!("mediaSession" in navigator)) {
+    console.warn("Media Session API non supportata.");
+    return;
+  }
+
+  const handlers = {
+    play: () => togglePlayback(),
+    pause: () => audio.pause(),
+    previoustrack: () => previousTrack(),
+    nexttrack: () => nextTrack(false),
+
+    seekbackward: details => {
+      audio.currentTime = Math.max(
+        0,
+        audio.currentTime - (details.seekOffset || 10)
+      );
+    },
+
+    seekforward: details => {
+      audio.currentTime = Math.min(
+        audio.duration || audio.currentTime + 10,
+        audio.currentTime + (details.seekOffset || 10)
+      );
+    },
+
+    seekto: details => {
+      if (Number.isFinite(details.seekTime)) {
+        audio.currentTime = details.seekTime;
+      }
+    }
+  };
+
+  for (const [action, handler] of Object.entries(handlers)) {
+    try {
+      navigator.mediaSession.setActionHandler(action, handler);
+    } catch (error) {
+      console.warn("Comando non supportato:", action);
+    }
+  }
+
+  updateMediaPlaybackState();
+}
 function formatTime(seconds) {
   if (!Number.isFinite(seconds)) return "0:00";
 
@@ -163,6 +228,20 @@ function createPlayerControls() {
 }
 
 function updateTimeline() {
+  if ("mediaSession" in navigator &&
+      Number.isFinite(audio.duration) &&
+      audio.duration > 0 &&
+      Number.isFinite(audio.currentTime)) {
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: audio.duration,
+        playbackRate: audio.playbackRate || 1,
+        position: Math.min(audio.currentTime, audio.duration)
+      });
+    } catch (error) {
+      console.warn("Posizione player non disponibile:", error);
+    }
+  }
   const duration = audio.duration || 0;
   const current = audio.currentTime || 0;
 
@@ -179,6 +258,7 @@ function updatePlayerButtons() {
   if (!playButton) return;
 
   playButton.textContent = audio.paused ? "▶" : "Ⅱ";
+  updateMediaPlaybackState();
   playButton.title = audio.paused ? "Riproduci" : "Pausa";
 
   $("shuffleButton").classList.toggle("active", shuffleEnabled);
@@ -239,6 +319,8 @@ async function playTrack(track, queue = null) {
     audio.load();
 
     $("nowTitle").textContent = track.title || "Senza titolo";
+    $("nowArtist").textContent = track.artist || "Artista sconosciuto";
+    updateMediaMetadata(track);
 
     $("player").classList.remove("hidden");
 
@@ -596,6 +678,10 @@ $("logout").onclick = async () => {
   message("");
 
   $("player").classList.add("hidden");
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.metadata = null;
+    navigator.mediaSession.playbackState = "none";
+  }
 
   screen(false);
 };
@@ -623,6 +709,10 @@ $("closePlayer").onclick = () => {
   playlist = [];
 
   $("player").classList.add("hidden");
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.metadata = null;
+    navigator.mediaSession.playbackState = "none";
+  }
 
   render();
 };
@@ -704,6 +794,7 @@ $("files").onchange = async e => {
 /* ---------------- AVVIO PLAYER ---------------- */
 
 createPlayerControls();
+setupMediaSession();
 
 /* ---------------- SESSIONE SUPABASE ---------------- */
 
@@ -751,3 +842,4 @@ if ("serviceWorker" in navigator) {
     .register("./sw.js")
     .catch(console.error);
 }
+
